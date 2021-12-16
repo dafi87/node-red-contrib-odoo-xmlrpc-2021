@@ -38,18 +38,23 @@ module.exports = function(RED) {
                     method = msg.method;
                 }
 
-                // var ids = msg.payload;
-                // if (!isDefinedValue(ids)){
-                //   return handle_error(new Error('Payload has to be the record identifier(s)'), node, done);
-                // }
-                // if (!Array.isArray(ids)){
-                //   return handle_error(new Error('Payload has to be an array of record identifiers'), node, done);
-                // }
+                var ids = msg.payload;
+                if (!isDefinedValue(ids) && !(isDefinedValue(msg.params))) {
+                    return handle_error(new Error('Payload or Params has to be the record identifier(s)'), node, done);
+                }
+                if (isDefinedValue(ids) && !Array.isArray(ids)) {
+                    return handle_error(new Error('Payload has to be an array of record identifiers'), node, done);
+                }
 
-                // var params = [];
-                // params.push(ids);
+                var params = [];
+                params.push([ids]);
 
-                var params = msg.payload
+                if (isDefinedValue(msg.params)) {
+                    params = msg.params;
+                }
+                // method = read, params = [ [ ids, [ "name" ] ], { "context": { "lang": "zh_CN" } } ]
+                // [*args,**kw], [(),{}]
+                node.status({ fill: "green", shape: "dot", text: JSON.stringify(params) });
 
                 odoo_inst.execute_kw(config.model, method, params, function(err, value) {
                     if (err) {
