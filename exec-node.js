@@ -1,21 +1,20 @@
-function isDefinedValue(v){
-  return !(v == null || typeof v === 'undefined');
+function isDefinedValue(v) {
+    return !(v == null || typeof v === 'undefined');
 }
 
-function isUInt(v){
-  return typeof v === 'number' && Math.floor(v) === v && v >= 0;
+function isUInt(v) {
+    return typeof v === 'number' && Math.floor(v) === v && v >= 0;
 }
 
-module.exports = function (RED) {
+module.exports = function(RED) {
     var handle_error = function(err, node, done) {
         node.log(err.body);
-        node.status({fill: "red", shape: "dot", text: err.message});
+        node.status({ fill: "red", shape: "dot", text: err.message });
 
-        if (done) { 
-          done(err); 
-        }
-        else {
-          node.error(err, err.message);
+        if (done) {
+            done(err);
+        } else {
+            node.error(err, err.message);
         }
     };
 
@@ -24,9 +23,9 @@ module.exports = function (RED) {
         this.host = RED.nodes.getNode(config.host);
         var node = this;
 
-        node.on('input', function (msg, send, done) {
+        node.on('input', function(msg, send, done) {
             node.status({});
-            send = send || function() { node.send.apply(node,arguments) }
+            send = send || function() { node.send.apply(node, arguments) }
 
             this.host.connect(function(err, odoo_inst) {
                 if (err) {
@@ -34,31 +33,37 @@ module.exports = function (RED) {
                 }
 
                 var method = config.method;
-                if (isDefinedValue(msg.method))
-                {
-                  node.log('method overwritten by msg');
-                  method = msg.method;
+                if (isDefinedValue(msg.method)) {
+                    node.log('method overwritten by msg');
+                    method = msg.method;
                 }
 
                 var ids = msg.payload;
-                if (!isDefinedValue(ids)){
-                  return handle_error(new Error('Payload has to be the record identifier(s)'), node, done);
+                if (!isDefinedValue(ids) && !(isDefinedValue(msg.params))) {
+                    return handle_error(new Error('Payload or Params has to be the record identifier(s)'), node, done);
                 }
-                if (!Array.isArray(ids)){
-                  return handle_error(new Error('Payload has to be an array of record identifiers'), node, done);
+                if (isDefinedValue(ids) && !Array.isArray(ids)) {
+                    return handle_error(new Error('Payload has to be an array of record identifiers'), node, done);
                 }
 
-		            var params = [];
-                params.push(ids);
+                var params = [];
+                params.push([ids]);
 
-                odoo_inst.execute_kw(config.model, method, params, function (err, value) {
+                if (isDefinedValue(msg.params)) {
+                    params = msg.params;
+                }
+                // method = read, params = [ [ ids, [ "name" ] ], { "context": { "lang": "zh_CN" } } ]
+                // [*args,**kw], [(),{}]
+                node.status({ fill: "green", shape: "dot", text: JSON.stringify(params) });
+
+                odoo_inst.execute_kw(config.model, method, params, function(err, value) {
                     if (err) {
                         return handle_error(err, node, done);
                     }
 
                     msg.payload = value;
 
-                    if (value === true) node.status({fill:"green",shape:"dot",text:"'" + method + "' executed"});
+                    if (value === true) node.status({ fill: "green", shape: "dot", text: "'" + method + "' executed" });
 
                     send(msg);
 
